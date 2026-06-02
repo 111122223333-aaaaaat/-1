@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>饭堂菜单管理</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:Arial,"PingFang SC","Microsoft YaHei",sans-serif;background:#F4F6F8;
+  max-width:460px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+button{cursor:pointer;font-family:inherit;}
+input{font-family:inherit;}
+#app{flex:1;display:flex;flex-direction:column;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const DAYS=[{n:"周一",d:"6月8日"},{n:"周二",d:"6月9日"},{n:"周三",d:"6月10日"},
+  {n:"周四",d:"6月11日"},{n:"周五",d:"6月12日"}];
+const SECS=[
+  {name:"早餐",h:"#E65100",b:"#FFF8E1",c:"#F57F17",cats:["粉面类","粥品","包点","饮品","小食"]},
+  {name:"中餐",h:"#2E7D32",b:"#F1F8E9",c:"#388E3C",cats:["荤菜","素菜","减脂餐","汤/甜品"]},
+  {name:"晚餐",h:"#B71C1C",b:"#FFEBEE",c:"#C62828",cats:["主食","汤"]}
+];
+const WKD=[
+  {label:"包点接龙",items:["叉烧包/豆沙包 ¥2/个","花卷/红糖馒头 ¥1/个","小馒头 ¥0.5/个"]},
+  {label:"菜肴接龙",items:["凉拌凤爪 ¥35/份","酸汤猪脚 ¥35/份","手撕鸡 ¥35/份","云吞 ¥0.4/个","韭菜馅饺子 ¥0.7/个"]}
+];
+const mk=(s,c,d)=>`${s},${c},${d}`;
+const INIT=()=>{
+  const m={};const x=(s,c,d,v)=>{m[mk(s,c,d)]=v;};
+  // ── 早餐 粉面类 ──
+  x(0,0,0,["牛腩粉 ¥7","肉末粉 ¥6","鸡蛋粉 ¥3","肠粉 ¥2.5/份"]);
+  x(0,0,1,["猪脚粉 ¥6","肉末粉 ¥6","鸡蛋粉 ¥3","肠粉 ¥2.5/份"]);
+  x(0,0,2,["牛腩粉 ¥7","肉末粉 ¥6","鸡蛋粉 ¥3","肠粉 ¥2.5/份"]);
+  x(0,0,3,["猪脚粉","肉末粉","鸡蛋粉 ¥3","肠粉 ¥2.5/份"]);
+  x(0,0,4,["牛腩粉 ¥7","肉末粉 ¥6","鸡蛋粉 ¥3","肠粉 ¥2.5/份"]);
+  // ── 早餐 粥品 ──
+  x(0,1,0,["小米粥","小碗 ¥1 · 大碗 ¥2"]);
+  x(0,1,1,["瘦肉粥","小碗 ¥1 · 大碗 ¥2"]);
+  x(0,1,2,["玉米粥","小碗 ¥1 · 大碗 ¥2"]);
+  x(0,1,3,["皮蛋瘦肉粥","小碗 ¥1 · 大碗 ¥2"]);
+  x(0,1,4,["南瓜细米粥","小碗 ¥1 · 大碗 ¥2"]);
+  // ── 早餐 包点（周二新增）──
+  x(0,2,0,["叉烧包/豆沙包 ¥2","花卷/红糖馒头 ¥1","小馒头 ¥0.5"]);
+  x(0,2,1,["叉烧包/豆沙包 ¥2","红糖馒头/花卷 ¥1","小馒头 ¥0.5"]);
+  x(0,2,2,["叉烧包/豆沙包 ¥2","红糖馒头/花卷 ¥1","小馒头 ¥0.5"]);
+  x(0,2,3,["叉烧包/豆沙包 ¥2","花卷/红糖馒头 ¥1","小馒头 ¥0.5"]);
+  x(0,2,4,["叉烧包/豆沙包 ¥2","花卷/红糖馒头 ¥1","小馒头 ¥0.5"]);
+  // ── 早餐 饮品 ──
+  x(0,3,0,["豆浆 / 芝麻糊","小碗 ¥1 · 大碗 ¥2"]);
+  x(0,3,1,["豆浆 / 黑豆浆","小碗 ¥1 · 大碗 ¥2"]);
+  x(0,3,2,["豆浆 / 芝麻糊","小碗 ¥1 · 大碗 ¥2"]);
+  x(0,3,3,["豆浆 / 黑豆浆","小碗 ¥1 · 大碗 ¥2"]);
+  x(0,3,4,["豆浆 / 芝麻糊","小碗 ¥1 · 大碗 ¥2"]);
+  // ── 早餐 小食 ──
+  x(0,4,0,["小红薯/玉米/鸡蛋 ¥1"]);
+  x(0,4,1,["小红薯/玉米/鸡蛋 ¥1/个"]);
+  x(0,4,2,["鸡蛋/小红薯/玉米 ¥1/个"]);
+  x(0,4,3,["小红薯/玉米/鸡蛋 ¥1/个"]);
+  x(0,4,4,["小红薯/玉米/鸡蛋 ¥1/个"]);
+  // ── 中餐 荤菜 ──
+  x(1,0,0,["白切鸡 ¥6","西红柿腐竹炒牛肉","蒜蓉粉丝蒸虾扇贝 ¥6"]);
+  x(1,0,1,["陈皮柱侯焖鸭 ¥6","凉拌猪舌头 ¥6","豆腐焖鲶鱼 ¥6"]);
+  x(1,0,2,["虫草香菇蒸鸡 ¥6","菠萝番茄焖排骨 ¥6","客家三酿 ¥4"]);
+  x(1,0,3,["五杯鸭 ¥6","凉拌牛腱子 ¥6","红烧鱼块 ¥6"]);
+  x(1,0,4,["东坡肉 ¥6","辣子鸡 ¥6","苦瓜酿 ¥4"]);
+  // ── 中餐 素菜（周一换新，周五价格改）──
+  x(1,1,0,["肉末蒸金针菇 ¥2","蒜蓉炒空心菜 ¥1"]);
+  x(1,1,1,["五花炒四季豆 ¥2","蒜蓉炒大白菜 ¥1"]);
+  x(1,1,2,["韭菜炒猪红 ¥2","炒甜菜心 ¥1"]);
+  x(1,1,3,["肉末炒节瓜 ¥2","蒜蓉炒玻璃生菜 ¥1"]);
+  x(1,1,4,["西红柿炒鸡蛋 ¥2","蒜蓉炒上海青 ¥1"]);
+  // ── 中餐 减脂餐（周五新增）──
+  x(1,2,0,["减脂餐 ¥8/份"]);
+  x(1,2,1,["减脂餐 ¥8/份"]);
+  x(1,2,2,["减脂餐 ¥8/份"]);
+  x(1,2,3,["减脂餐 ¥8/份"]);
+  x(1,2,4,["减脂餐 ¥8/份"]);
+  // ── 中餐 汤/甜品（周一换新）──
+  x(1,3,0,["海带绿豆糖水","红萝卜淮山汤"]);
+  x(1,3,1,["肉丝芥菜汤","凉粉糖水"]);
+  x(1,3,2,["冬瓜汤","冰糖银耳糖水"]);
+  x(1,3,3,["霸王花汤","凉粉糖水"]);
+  x(1,3,4,["玉米红萝卜汤"]);
+  // ── 晚餐 主食 ──
+  x(2,0,0,["莲藕红萝卜馅饺子 ¥0.7/个","云吞 ¥0.4/个"]);
+  x(2,0,1,["现煮老友杂粉/伊面 ¥9/碗","（加蛋 +¥1）"]);
+  x(2,0,2,["炸酱面 ¥9（加蛋+¥1）"]);
+  x(2,0,3,["脆皮鸭脚螺蛳粉 ¥9","（加蛋+¥1）"]);
+  // ── 晚餐 汤 ──
+  x(2,1,0,["虾皮紫菜汤"]);
+  x(2,1,2,["枸杞菜汤"]);
+  // ── 周末接龙 ──
+  m["wkd-0"]=["叉烧包/豆沙包 ¥2/个","花卷/红糖馒头 ¥1/个","小馒头 ¥0.5/个"];
+  m["wkd-1"]=["凉拌凤爪 ¥35/份","酸汤猪脚 ¥35/份","手撕鸡 ¥35/份","云吞 ¥0.4/个","韭菜馅饺子 ¥0.7/个"];
+  return m;
+};
+
+let state={
+  tab:"preview",menu:INIT(),zoom:1,
+  step:"day",eDay:null,eSec:null,eCat:null,eWkd:null,eMode:"list",eIdx:null,
+  iName:"",iPrice:"",toast:"",toastT:null,confirm_:null
+};
+
+function save(m){
+  state.menu={...m};
+  try{localStorage.setItem("canteen_menu_v5",JSON.stringify(m));}catch{}
+}
+function toast_(msg){
+  clearTimeout(state.toastT);
+  state.toast=msg;render();
+  state.toastT=setTimeout(()=>{state.toast="";render();},2200);
+}
+try{const s=localStorage.getItem("canteen_menu_v5");if(s)state.menu=JSON.parse(s);}catch{}
+
+function get(s,c,d){return state.menu[mk(s,c,d)]||[];}
+function curKey(){if(state.eWkd!==null)return`wkd-${state.eWkd}`;const{eSec,eCat,eDay}=state;return(eSec!==null&&eCat!==null&&eDay!==null)?mk(eSec,eCat,eDay):null;}
+
+function doAdd(){
+  const n=state.iName.trim();if(!n)return;
+  const item=state.iPrice.trim()?`${n} ¥${state.iPrice.trim()}`:n;
+  const k=curKey();const ex=[...(state.menu[k]||[])];
+  const cl=(ex.length===1&&(ex[0]==="—"||ex[0]==="待补充"))?[]:ex;
+  save({...state.menu,[k]:[...cl,item]});
+  state.iName="";state.iPrice="";state.eMode="list";toast_("✅ 添加成功");
+}
+function doEdit(){
+  const n=state.iName.trim();if(!n||state.eIdx===null)return;
+  const item=state.iPrice.trim()?`${n} ¥${state.iPrice.trim()}`:n;
+  const k=curKey();const items=[...(state.menu[k]||[])];items[state.eIdx]=item;
+  save({...state.menu,[k]:items});
+  state.iName="";state.iPrice="";state.eIdx=null;state.eMode="list";toast_("✅ 修改成功");
+}
+function doDel(idx){
+  const k=curKey();const items=[...(state.menu[k]||[])];items.splice(idx,1);
+  save({...state.menu,[k]:items.length?items:["—"]});toast_("✅ 已删除");
+}
+function doClear(){save({...state.menu,[curKey()]:["待补充"]});toast_("✅ 已清空");}
+function doResetDay(di){
+  const nm={...state.menu};
+  SECS.forEach((_,si)=>SECS[si].cats.forEach((_,ci)=>{nm[mk(si,ci,di)]=["待补充"];}));
+  save(nm);toast_("✅ 已重置该天");
+}
+function doResetAll(){
+  const nm={};
+  SECS.forEach((_,si)=>SECS[si].cats.forEach((_,ci)=>
+    DAYS.forEach((_,di)=>{nm[mk(si,ci,di)]=["待补充"];})));
+  save(nm);toast_("✅ 已重置整周");
+}
+function resetEdit(){
+  Object.assign(state,{step:"day",eDay:null,eSec:null,eCat:null,eWkd:null,eMode:"list",eIdx:null,iName:"",iPrice:""});
+}
+
+function exportExcel(){
+  const wb=XLSX.utils.book_new();
+  const g=(s,c,d)=>(state.menu[mk(s,c,d)]||[]).join("\n");
+  const rows=[["饭堂一周菜谱","","","","","",""],["","", ...DAYS.map(d=>`${d.n} ${d.d}`)]];
+  const merges=[{s:{r:0,c:0},e:{r:0,c:6}}];
+  let r=2;
+  SECS.forEach((sec,si)=>{
+    merges.push({s:{r,c:0},e:{r:r+sec.cats.length-1,c:0}});
+    sec.cats.forEach((cat,ci)=>{rows.push([ci===0?sec.name:"",cat,...DAYS.map((_,di)=>g(si,ci,di))]);r++;});
+  });
+  rows.push(["","","","","","",""]);
+  rows.push(["周末接龙","","","","","",""]);
+  merges.push({s:{r,c:0},e:{r,c:6}});r++;
+  WKD.forEach((w,i)=>{const items=state.menu[`wkd-${i}`]||w.items;rows.push([w.label,items.join("  |  "),"","","","",""]);r++;});
+  rows.push(["※ 价格如有调整以现场公告为准","","","","","",""]);
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws["!merges"]=merges;
+  ws["!cols"]=[{wch:6},{wch:12},...DAYS.map(()=>({wch:28}))];
+  XLSX.utils.book_append_sheet(wb,ws,"一周菜谱");
+  const out=XLSX.write(wb,{bookType:"xlsx",type:"array"});
+  const blob=new Blob([out],{type:"application/octet-stream"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download="饭堂一周菜谱.xlsx";
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast_("📥 Excel 已下载！");
+}
+
+function h(tag,attrs,...children){
+  const el=document.createElement(tag);
+  for(const[k,v]of Object.entries(attrs||{})){
+    if(k==="style"&&typeof v==="object"){Object.assign(el.style,v);}
+    else if(k.startsWith("on")&&typeof v==="function"){el.addEventListener(k.slice(2).toLowerCase(),v);}
+    else{el.setAttribute(k,v);}
+  }
+  for(const c of children){
+    if(c==null||c===false)continue;
+    if(typeof c==="string"||typeof c==="number"){el.appendChild(document.createTextNode(c));}
+    else if(c instanceof Node){el.appendChild(c);}
+    else if(Array.isArray(c)){c.forEach(cc=>{if(cc instanceof Node)el.appendChild(cc);else if(cc!=null)el.appendChild(document.createTextNode(String(cc)));});}
+  }
+  return el;
+}
+
+function menuTable(zm){
+  const wrap=h("div",{style:{overflow:"auto",padding:"12px 8px"}});
+  const inner=h("div",{style:{zoom:`${zm}`,display:"inline-block",minWidth:640}});
+  inner.appendChild(h("div",{style:{background:"#1B5E20",color:"#fff",textAlign:"center",
+    padding:"11px 8px",fontWeight:"bold",fontSize:"15px",
+    borderRadius:"10px 10px 0 0",letterSpacing:"2px"}},
+    "饭  堂  一  周  菜  谱　|　2025年6月8日—6月12日"));
+  const tbl=h("table",{style:{borderCollapse:"collapse",width:"100%",tableLayout:"fixed"}});
+  const cg=document.createElement("colgroup");
+  [[34],[58],...DAYS.map(()=>[112])].forEach(([w])=>{
+    const col=document.createElement("col");col.style.width=w+"px";cg.appendChild(col);
+  });
+  tbl.appendChild(cg);
+  const thead=document.createElement("thead");
+  const hr=document.createElement("tr");
+  ["餐次","分类",...DAYS.map(d=>`${d.n}\n${d.d}`)].forEach((ht,i)=>{
+    const th=document.createElement("th");
+    Object.assign(th.style,{background:"#1A237E",color:"#fff",padding:"7px 4px",
+      textAlign:"center",border:"1px solid rgba(255,255,255,.25)",
+      fontSize:i<2?"12px":"11px",whiteSpace:"pre-line",fontWeight:"bold"});
+    th.textContent=ht;hr.appendChild(th);
+  });
+  thead.appendChild(hr);tbl.appendChild(thead);
+  const tbody=document.createElement("tbody");
+  SECS.forEach((sec,si)=>{
+    sec.cats.forEach((cat,ci)=>{
+      const tr=document.createElement("tr");
+      if(ci===0){
+        const td=document.createElement("td");
+        Object.assign(td.style,{background:sec.h,color:"#fff",textAlign:"center",
+          writingMode:"vertical-lr",transform:"rotate(180deg)",
+          fontSize:"13px",fontWeight:"bold",padding:"6px 3px",
+          border:"1px solid rgba(0,0,0,.1)"});
+        td.rowSpan=sec.cats.length;td.textContent=sec.name;tr.appendChild(td);
+      }
+      const catTd=document.createElement("td");
+      Object.assign(catTd.style,{background:sec.c,color:"#fff",fontSize:"11px",
+        fontWeight:"bold",textAlign:"center",padding:"5px 3px",border:"1px solid rgba(0,0,0,.1)"});
+      catTd.textContent=cat;tr.appendChild(catTd);
+      DAYS.forEach((_,di)=>{
+        const td=document.createElement("td");
+        Object.assign(td.style,{background:sec.b,fontSize:"11px",verticalAlign:"top",
+          padding:"5px",border:"1px solid #ddd"});
+        get(si,ci,di).forEach(item=>{
+          const d=document.createElement("div");
+          Object.assign(d.style,{lineHeight:"1.6",textAlign:"center",color:"#212121"});
+          d.textContent=item;td.appendChild(d);
+        });
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  });
+  tbl.appendChild(tbody);inner.appendChild(tbl);
+  inner.appendChild(h("div",{style:{background:"#4A148C",color:"#fff",textAlign:"center",
+    padding:"7px",fontSize:"13px",fontWeight:"bold",marginTop:"2px"}},
+    "★ 周末接龙预订（提前联系）"));
+  WKD.forEach((w,i)=>{
+    const items=state.menu[`wkd-${i}`]||w.items;
+    const row=h("div",{style:{display:"flex",background:i%2?"#EDE0FF":"#F3E5F5",
+      borderBottom:"1px solid #D1C4E9"}});
+    row.appendChild(h("div",{style:{width:"90px",background:"#6A1B9A",color:"#fff",fontSize:"12px",
+      fontWeight:"bold",display:"flex",alignItems:"center",justifyContent:"center",
+      textAlign:"center",padding:"8px 4px",flexShrink:"0"}},w.label));
+    row.appendChild(h("div",{style:{padding:"8px 10px",fontSize:"11px",color:"#3E0B6B",lineHeight:"1.9"}},
+      items.join("　")));
+    inner.appendChild(row);
+  });
+  inner.appendChild(h("div",{style:{background:"#F5F5F5",textAlign:"center",fontSize:"10px",
+    color:"#999",padding:"6px",borderRadius:"0 0 8px 8px"}},
+    "※ 价格如有调整以现场公告为准　|　减脂餐每份 ¥8"));
+  wrap.appendChild(inner);return wrap;
+}
+
+function crumb(items,onBack){
+  const d=h("div",{style:{display:"flex",alignItems:"center",flexWrap:"wrap",gap:"4px",
+    marginBottom:"16px",fontSize:"13px",color:"#888",padding:"4px 0"}});
+  d.appendChild(h("span",{style:{color:"#2E7D32",fontWeight:"bold",cursor:"pointer",
+    padding:"4px 8px",background:"#E8F5E9",borderRadius:"8px"},onClick:onBack},"‹ 返回"));
+  items.forEach(item=>{
+    d.appendChild(h("span",{style:{color:"#ccc",margin:"0 4px"}},"›"));
+    d.appendChild(h("span",{style:{color:"#212121"}},item));
+  });
+  return d;
+}
+
+function render(){
+  const app=document.getElementById("app");app.innerHTML="";
+  const{tab,zoom,step,eDay,eSec,eCat,eMode,iName,iPrice,confirm_:conf}=state;
+
+  app.appendChild(h("div",{style:{background:"#1B5E20",color:"#fff",padding:"12px 16px",
+    display:"flex",alignItems:"center",gap:"10px",flexShrink:"0"}},
+    h("span",{style:{fontSize:"26px"}},"🍽️"),
+    h("div",{},
+      h("div",{style:{fontSize:"18px",fontWeight:"bold"}},"饭堂菜单管理"),
+      h("div",{style:{fontSize:"12px",opacity:"0.75"}},"2025年6月8日 — 6月12日")
+    )
+  ));
+
+  const content=h("div",{style:{flex:"1",overflow:"auto",paddingBottom:"66px"}});
+  app.appendChild(content);
+
+  // ── 预览 ──────────────────────────────────────────────────────
+  if(tab==="preview"){
+    const zbar=h("div",{style:{background:"#fff",padding:"10px 16px",display:"flex",
+      alignItems:"center",gap:"10px",borderBottom:"1px solid #E0E0E0",
+      position:"sticky",top:"0",zIndex:"10"}});
+    zbar.appendChild(h("span",{style:{fontSize:"13px",color:"#666",flex:"1"}},"预览菜单（点 ＋ 放大查看）"));
+    zbar.appendChild(h("button",{style:{width:"44px",height:"44px",borderRadius:"22px",
+      border:"1.5px solid #ccc",background:"#fff",fontSize:"20px",fontWeight:"bold",color:"#333"},
+      onClick(){state.zoom=Math.max(.6,+(state.zoom-.2).toFixed(1));render();}
+    },"－"));
+    zbar.appendChild(h("button",{style:{padding:"8px 10px",border:"1.5px solid #ccc",
+      borderRadius:"8px",background:"#fff",fontSize:"13px",color:"#555",minWidth:"52px",textAlign:"center"},
+      onClick(){state.zoom=1;render();}
+    },Math.round(zoom*100)+"%"));
+    zbar.appendChild(h("button",{style:{width:"44px",height:"44px",borderRadius:"22px",
+      border:"1.5px solid #ccc",background:"#fff",fontSize:"20px",fontWeight:"bold",color:"#333"},
+      onClick(){state.zoom=Math.min(3,+(state.zoom+.2).toFixed(1));render();}
+    },"＋"));
+    content.appendChild(zbar);
+    content.appendChild(menuTable(zoom));
+  }
+
+  // ── 编辑 ──────────────────────────────────────────────────────
+  if(tab==="edit"){
+    const pad=h("div",{style:{padding:"16px"}});
+    content.appendChild(pad);
+
+    if(conf){
+      const overlay=h("div",{style:{position:"fixed",inset:"0",background:"rgba(0,0,0,.55)",
+        display:"flex",alignItems:"center",justifyContent:"center",zIndex:"50"}});
+      const box=h("div",{style:{background:"#fff",borderRadius:"20px",padding:"24px",
+        margin:"16px",maxWidth:"320px",width:"100%",boxShadow:"0 8px 32px rgba(0,0,0,.2)"}});
+      box.appendChild(h("div",{style:{fontSize:"20px",marginBottom:"8px"}},"⚠️"));
+      box.appendChild(h("div",{style:{fontSize:"16px",fontWeight:"bold",marginBottom:"8px"}},conf.title));
+      box.appendChild(h("div",{style:{fontSize:"14px",color:"#666",marginBottom:"24px",lineHeight:"1.6"}},conf.desc));
+      const btns=h("div",{style:{display:"flex",gap:"10px"}});
+      btns.appendChild(h("button",{style:{flex:"1",padding:"13px",borderRadius:"12px",
+        border:"1.5px solid #ddd",background:"#fff",fontSize:"15px",color:"#555"},
+        onClick(){state.confirm_=null;render();}
+      },"取消"));
+      btns.appendChild(h("button",{style:{flex:"1",padding:"13px",borderRadius:"12px",
+        border:"none",background:"#B71C1C",color:"#fff",fontSize:"15px",fontWeight:"bold"},
+        onClick(){conf.onOk();state.confirm_=null;render();}
+      },"确认"));
+      box.appendChild(btns);overlay.appendChild(box);app.appendChild(overlay);
+    }
+
+    if(step==="day"){
+      pad.appendChild(h("div",{style:{fontSize:"20px",fontWeight:"bold",color:"#212121",marginBottom:"4px"}},"编辑菜单"));
+      pad.appendChild(h("div",{style:{color:"#888",fontSize:"14px",marginBottom:"20px"}},"选择要修改哪天"));
+      const grid=h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"24px"}});
+      DAYS.forEach((d,i)=>{
+        const btn=h("button",{style:{padding:"16px",background:"#fff",border:"1.5px solid #E0E0E0",
+          borderRadius:"14px",textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,.07)"},
+          onClick(){state.eDay=i;state.step="sec";render();}
+        });
+        btn.appendChild(h("div",{style:{fontSize:"22px",fontWeight:"bold",color:"#1B5E20"}},d.n));
+        btn.appendChild(h("div",{style:{fontSize:"13px",color:"#888",marginTop:"2px"}},d.d));
+        grid.appendChild(btn);
+      });
+      // 周末接龙按钮
+      const wkdBtn=h("button",{style:{display:"flex",width:"100%",alignItems:"center",gap:"14px",
+        padding:"14px 16px",background:"#fff",border:"1.5px solid #4A148C40",
+        borderLeft:"6px solid #4A148C",borderRadius:"14px",marginBottom:"20px",textAlign:"left"},
+        onClick(){state.step="wkdCat";state.eDay=-1;render();}
+      });
+      wkdBtn.appendChild(h("div",{style:{width:"44px",height:"44px",borderRadius:"22px",
+        background:"#4A148C",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",
+        fontSize:"18px",flexShrink:"0"}},"★"));
+      const wkdInfo=h("div",{});
+      wkdInfo.appendChild(h("div",{style:{fontSize:"16px",fontWeight:"bold",color:"#212121"}},"周末接龙预订"));
+      wkdInfo.appendChild(h("div",{style:{fontSize:"12px",color:"#999",marginTop:"2px"}},"包点接龙 · 菜肴接龙"));
+      wkdBtn.append(wkdInfo,h("div",{style:{marginLeft:"auto",fontSize:"18px",color:"#ccc"}},"›"));
+      pad.appendChild(wkdBtn);
+      pad.appendChild(grid);
+      const danger=h("div",{style:{background:"#FFF3E0",borderRadius:"14px",padding:"16px",border:"1.5px solid #FFCC80"}});
+      danger.appendChild(h("div",{style:{fontWeight:"bold",color:"#E65100",marginBottom:"12px",fontSize:"15px"}},"⚠️ 批量重置"));
+      [...DAYS.map((d,i)=>({label:`重置 ${d.n} 全天`,di:i})),{label:"重置整周菜单",di:-1}].forEach(({label,di})=>{
+        danger.appendChild(h("button",{style:{display:"block",width:"100%",padding:"11px 14px",
+          background:"#fff",border:`1.5px solid ${di<0?"#E65100":"#FFCC80"}`,borderRadius:"10px",
+          textAlign:"left",fontSize:"14px",color:di<0?"#E65100":"#555",
+          fontWeight:di<0?"bold":"normal",marginBottom:"8px"},
+          onClick(){
+            state.confirm_={title:`确认重置${di>=0?DAYS[di].n+"全天":"整周"}菜单？`,
+              desc:"所有内容将变为「待补充」，需手动重新填写。",
+              onOk:()=>{di>=0?doResetDay(di):doResetAll();render();}};render();
+          }
+        },label));
+      });
+      pad.appendChild(danger);
+    }
+
+
+    if(step==="wkdCat"){
+      pad.appendChild(crumb(["周末接龙"],()=>{resetEdit();render();}));
+      pad.appendChild(h("div",{style:{fontSize:"18px",fontWeight:"bold",marginBottom:"16px",color:"#212121"}},"选择哪个接龙"));
+      [{label:"包点接龙",icon:"🥟",desc:"叉烧包 · 豆沙包 · 花卷 · 馒头",idx:0},
+       {label:"菜肴接龙",icon:"🍖",desc:"凉拌凤爪 · 猪脚 · 手撕鸡 · 云吞 · 饺子",idx:1}].forEach(({label,icon,desc,idx})=>{
+        const items=state.menu[`wkd-${idx}`]||[];
+        const btn=h("button",{style:{display:"flex",width:"100%",alignItems:"center",gap:"14px",
+          padding:"14px 16px",background:"#fff",border:"1.5px solid #4A148C30",
+          borderLeft:"6px solid #4A148C",borderRadius:"14px",marginBottom:"10px",textAlign:"left"},
+          onClick(){state.eWkd=idx;state.eMode="list";state.step="wkdItems";render();}
+        });
+        btn.appendChild(h("div",{style:{fontSize:"28px",flexShrink:"0"}},icon));
+        const info=h("div",{style:{flex:"1"}});
+        info.appendChild(h("div",{style:{fontSize:"16px",fontWeight:"bold",color:"#212121"}},label));
+        info.appendChild(h("div",{style:{fontSize:"12px",color:"#999",marginTop:"2px"}},items.length?items.join(" · "):desc));
+        btn.append(info,h("div",{style:{fontSize:"18px",color:"#ccc"}},"›"));
+        pad.appendChild(btn);
+      });
+    }
+
+    if(step==="wkdItems"&&state.eWkd!==null&&eMode==="list"){
+      const wLabel=["包点接龙","菜肴接龙"][state.eWkd];
+      const k=curKey();const items=state.menu[k]||[];
+      pad.appendChild(crumb(["周末接龙",wLabel],()=>{state.eWkd=null;state.step="wkdCat";render();}));
+      const prev=h("div",{style:{background:"#F3E5F5",borderRadius:"12px",padding:"10px 14px",
+        marginBottom:"14px",border:"1.5px solid #4A148C40"}});
+      prev.appendChild(h("div",{style:{fontSize:"11px",color:"#6A1B9A",fontWeight:"bold",marginBottom:"6px"}},
+        `▸ 实时预览 · ${wLabel}`));
+      items.forEach(item=>prev.appendChild(h("div",{style:{fontSize:"16px",lineHeight:"1.75",color:"#212121"}},item)));
+      pad.appendChild(prev);
+      const box=h("div",{style:{background:"#fff",borderRadius:"14px",marginBottom:"12px",
+        overflow:"hidden",border:"1.5px solid #E0E0E0"}});
+      box.appendChild(h("div",{style:{padding:"10px 14px",fontSize:"14px",fontWeight:"bold",
+        color:"#555",borderBottom:"1px solid #F0F0F0"}},"当前项目"));
+      items.forEach((item,i)=>{
+        const row=h("div",{style:{display:"flex",alignItems:"center",padding:"13px 14px",
+          borderBottom:"1px solid #F8F8F8",gap:"8px"}});
+        row.appendChild(h("span",{style:{flex:"1",fontSize:"16px",color:"#212121"}},item));
+        row.appendChild(h("button",{style:{padding:"7px 13px",borderRadius:"8px",
+          border:"1.5px solid #4A148C30",background:"#F3E5F5",color:"#4A148C",
+          fontSize:"14px",fontWeight:"bold",flexShrink:"0"},
+          onClick(){
+            const pm=item.match(/¥([\d./]+)/);
+            state.iPrice=pm?pm[1]:"";
+            state.iName=item.replace(/\s*¥[\d./]+.*$/,"").trim();
+            state.eIdx=i;state.eMode="edit";render();
+          }
+        },"编辑"));
+        row.appendChild(h("button",{style:{padding:"7px 13px",borderRadius:"8px",
+          border:"none",background:"#FFEBEE",color:"#B71C1C",fontSize:"14px",fontWeight:"bold",flexShrink:"0"},
+          onClick(){doDel(i);render();}
+        },"删除"));
+        box.appendChild(row);
+      });
+      pad.appendChild(box);
+      const btns=h("div",{style:{display:"flex",gap:"10px"}});
+      btns.appendChild(h("button",{style:{flex:"1",padding:"15px",borderRadius:"12px",
+        border:"none",background:"#4A148C",color:"#fff",fontSize:"16px",fontWeight:"bold"},
+        onClick(){state.iName="";state.iPrice="";state.eMode="add";render();}
+      },"＋ 新增项目"));
+      btns.appendChild(h("button",{style:{padding:"15px 16px",borderRadius:"12px",
+        border:"1.5px solid #E0E0E0",background:"#fff",fontSize:"14px",color:"#666"},
+        onClick(){
+          state.confirm_={title:"清空此接龙？",
+            desc:`将清空「${wLabel}」的全部内容。`,
+            onOk:()=>{doClear();render();}};render();
+        }
+      },"清空"));
+      pad.appendChild(btns);
+    }
+    if(step==="sec"&&eDay!==null){
+      pad.appendChild(crumb([DAYS[eDay].n],()=>{resetEdit();render();}));
+      pad.appendChild(h("div",{style:{fontSize:"18px",fontWeight:"bold",marginBottom:"16px",color:"#212121"}},"选择哪顿饭"));
+      SECS.forEach((sec,si)=>{
+        const btn=h("button",{style:{display:"flex",width:"100%",alignItems:"center",gap:"14px",
+          padding:"14px 16px",background:"#fff",border:`1.5px solid ${sec.h}40`,
+          borderLeft:`6px solid ${sec.h}`,borderRadius:"14px",marginBottom:"10px",textAlign:"left"},
+          onClick(){state.eSec=si;state.step="cat";render();}
+        });
+        const icon=h("div",{style:{width:"44px",height:"44px",borderRadius:"22px",background:sec.h,
+          color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",
+          fontSize:"13px",fontWeight:"bold",flexShrink:"0"}},sec.name);
+        const info=h("div",{});
+        info.appendChild(h("div",{style:{fontSize:"16px",fontWeight:"bold",color:"#212121"}},sec.name));
+        info.appendChild(h("div",{style:{fontSize:"12px",color:"#999",marginTop:"2px"}},sec.cats.join(" · ")));
+        btn.append(icon,info,h("div",{style:{marginLeft:"auto",fontSize:"18px",color:"#ccc"}},"›"));
+        pad.appendChild(btn);
+      });
+    }
+
+    if(step==="cat"&&eDay!==null&&eSec!==null){
+      pad.appendChild(crumb([DAYS[eDay].n,SECS[eSec].name],()=>{state.eSec=null;state.step="sec";render();}));
+      pad.appendChild(h("div",{style:{fontSize:"18px",fontWeight:"bold",marginBottom:"16px",color:"#212121"}},"选择分类"));
+      SECS[eSec].cats.forEach((cat,ci)=>{
+        const items=state.menu[mk(eSec,ci,eDay)]||[];
+        const btn=h("button",{style:{display:"flex",width:"100%",alignItems:"flex-start",gap:"12px",
+          padding:"14px 16px",background:"#fff",border:"1.5px solid #E0E0E0",
+          borderRadius:"14px",marginBottom:"10px",textAlign:"left"},
+          onClick(){state.eCat=ci;state.eMode="list";state.step="items";render();}
+        });
+        btn.append(
+          h("div",{style:{fontSize:"14px",fontWeight:"bold",minWidth:"58px",color:SECS[eSec].c,paddingTop:"1px",flexShrink:"0"}},cat),
+          h("div",{style:{fontSize:"13px",color:"#555",lineHeight:"1.7",flex:"1"}},items.join(" · ")),
+          h("div",{style:{fontSize:"18px",color:"#ccc",flexShrink:"0"}},"›")
+        );
+        pad.appendChild(btn);
+      });
+    }
+
+    if(step==="items"&&curKey()&&eMode==="list"){
+      const k=curKey();const items=state.menu[k]||[];
+      pad.appendChild(crumb([DAYS[eDay].n,SECS[eSec].name,SECS[eSec].cats[eCat]],
+        ()=>{state.eCat=null;state.step="cat";render();}));
+      const prev=h("div",{style:{background:SECS[eSec].b,borderRadius:"12px",padding:"10px 14px",
+        marginBottom:"14px",border:`1.5px solid ${SECS[eSec].h}40`}});
+      prev.appendChild(h("div",{style:{fontSize:"11px",color:SECS[eSec].c,fontWeight:"bold",
+        marginBottom:"6px"}},`▸ 实时预览 · ${DAYS[eDay].n} ${SECS[eSec].name} ${SECS[eSec].cats[eCat]}`));
+      items.forEach(item=>prev.appendChild(h("div",{style:{fontSize:"16px",lineHeight:"1.75",color:"#212121"}},item)));
+      pad.appendChild(prev);
+      const box=h("div",{style:{background:"#fff",borderRadius:"14px",marginBottom:"12px",
+        overflow:"hidden",border:"1.5px solid #E0E0E0"}});
+      box.appendChild(h("div",{style:{padding:"10px 14px",fontSize:"14px",fontWeight:"bold",
+        color:"#555",borderBottom:"1px solid #F0F0F0"}},"当前菜品"));
+      items.forEach((item,i)=>{
+        const row=h("div",{style:{display:"flex",alignItems:"center",padding:"13px 14px",
+          borderBottom:"1px solid #F8F8F8",gap:"8px"}});
+        row.appendChild(h("span",{style:{flex:"1",fontSize:"16px",color:"#212121"}},item));
+        row.appendChild(h("button",{style:{padding:"7px 13px",borderRadius:"8px",
+          border:"1.5px solid #2E7D3230",background:"#E8F5E9",color:"#2E7D32",
+          fontSize:"14px",fontWeight:"bold",flexShrink:"0"},
+          onClick(){
+            const pm=item.match(/¥([\d./]+)/);
+            state.iPrice=pm?pm[1]:"";
+            state.iName=item.replace(/\s*¥[\d./]+.*$/,"").trim();
+            state.eIdx=i;state.eMode="edit";render();
+          }
+        },"编辑"));
+        row.appendChild(h("button",{style:{padding:"7px 13px",borderRadius:"8px",
+          border:"none",background:"#FFEBEE",color:"#B71C1C",fontSize:"14px",fontWeight:"bold",flexShrink:"0"},
+          onClick(){doDel(i);render();}
+        },"删除"));
+        box.appendChild(row);
+      });
+      pad.appendChild(box);
+      const btns=h("div",{style:{display:"flex",gap:"10px"}});
+      btns.appendChild(h("button",{style:{flex:"1",padding:"15px",borderRadius:"12px",
+        border:"none",background:"#1B5E20",color:"#fff",fontSize:"16px",fontWeight:"bold"},
+        onClick(){state.iName="";state.iPrice="";state.eMode="add";render();}
+      },"＋ 新增菜品"));
+      btns.appendChild(h("button",{style:{padding:"15px 16px",borderRadius:"12px",
+        border:"1.5px solid #E0E0E0",background:"#fff",fontSize:"14px",color:"#666"},
+        onClick(){
+          state.confirm_={title:"清空此分类？",
+            desc:`将清空「${SECS[eSec].name}·${SECS[eSec].cats[eCat]}」的全部内容。`,
+            onOk:()=>{doClear();render();}};render();
+        }
+      },"清空"));
+      pad.appendChild(btns);
+    }
+
+    if(step==="wkdItems"&&state.eWkd!==null&&(eMode==="add"||eMode==="edit")){
+      const wLabel=["包点接龙","菜肴接龙"][state.eWkd];
+      pad.appendChild(crumb(["周末接龙",wLabel,eMode==="add"?"新增项目":"编辑项目"],
+        ()=>{state.eMode="list";state.iName="";state.iPrice="";render();}));
+      const box=h("div",{style:{background:"#fff",borderRadius:"16px",padding:"18px",
+        border:"1.5px solid #E0E0E0",marginBottom:"14px"}});
+      box.appendChild(h("label",{style:{display:"block",fontSize:"16px",fontWeight:"bold",color:"#333",marginBottom:"8px"}},"项目名称"));
+      const nameIn=h("input",{type:"text",placeholder:"例：叉烧包/豆沙包 ¥2/个",
+        style:{width:"100%",padding:"13px 14px",fontSize:"17px",border:"1.5px solid #ddd",
+          borderRadius:"10px",outline:"none",marginBottom:"14px",display:"block"}});
+      nameIn.value=iName;
+      let prevSpanW;
+      nameIn.addEventListener("input",()=>{state.iName=nameIn.value;if(prevSpanW)prevSpanW.textContent=state.iName.trim()+(state.iPrice.trim()?` ¥${state.iPrice.trim()}`:"")||"";});
+      box.appendChild(nameIn);
+      box.appendChild(h("label",{style:{display:"block",fontSize:"16px",fontWeight:"bold",color:"#333",marginBottom:"8px"}},"价格（可不填）"));
+      const priceInW=h("input",{type:"text",placeholder:"例：35/份　或　0.7/个",
+        style:{width:"100%",padding:"13px 14px",fontSize:"17px",border:"1.5px solid #ddd",
+          borderRadius:"10px",outline:"none",marginBottom:"14px",display:"block"}});
+      priceInW.value=iPrice;
+      priceInW.addEventListener("input",()=>{state.iPrice=priceInW.value;if(prevSpanW)prevSpanW.textContent=state.iName.trim()+(state.iPrice.trim()?` ¥${state.iPrice.trim()}`:"")||"";});
+      box.appendChild(priceInW);
+      const prevBoxW=h("div",{style:{background:"#F3E5F5",borderRadius:"10px",padding:"11px 14px",
+        marginBottom:"18px",minHeight:"46px",display:"flex",alignItems:"center"}});
+      prevSpanW=h("span",{style:{fontSize:"18px",color:"#4A148C",fontWeight:"bold"}},
+        iName.trim()?(iName.trim()+(iPrice.trim()?` ¥${iPrice.trim()}`:"")):""
+      );
+      prevBoxW.appendChild(prevSpanW);box.appendChild(prevBoxW);
+      const btnsW=h("div",{style:{display:"flex",gap:"10px"}});
+      btnsW.appendChild(h("button",{style:{flex:"1",padding:"14px",borderRadius:"10px",
+        border:"1.5px solid #ddd",background:"#fff",fontSize:"15px",color:"#555"},
+        onClick(){state.eMode="list";state.iName="";state.iPrice="";render();}
+      },"取消"));
+      btnsW.appendChild(h("button",{style:{flex:"2",padding:"14px",borderRadius:"10px",
+        border:"none",background:"#4A148C",color:"#fff",fontSize:"15px",fontWeight:"bold"},
+        onClick(){eMode==="add"?doAdd():doEdit();render();}
+      },"确定保存"));
+      box.appendChild(btnsW);pad.appendChild(box);
+    }
+    if(step==="items"&&curKey()&&(eMode==="add"||eMode==="edit")){
+      pad.appendChild(crumb(
+        [DAYS[eDay].n,SECS[eSec].name,SECS[eSec].cats[eCat],eMode==="add"?"新增菜品":"编辑菜品"],
+        ()=>{state.eMode="list";state.iName="";state.iPrice="";render();}
+      ));
+      const box=h("div",{style:{background:"#fff",borderRadius:"16px",padding:"18px",
+        border:"1.5px solid #E0E0E0",marginBottom:"14px"}});
+      box.appendChild(h("label",{style:{display:"block",fontSize:"16px",fontWeight:"bold",color:"#333",marginBottom:"8px"}},"菜品名称"));
+      const nameIn=h("input",{type:"text",placeholder:"例：白切鸡",
+        style:{width:"100%",padding:"13px 14px",fontSize:"17px",border:"1.5px solid #ddd",
+          borderRadius:"10px",outline:"none",marginBottom:"14px",display:"block"}});
+      nameIn.value=iName;
+      let prevSpan;
+      nameIn.addEventListener("input",()=>{
+        state.iName=nameIn.value;
+        if(prevSpan)prevSpan.textContent=state.iName.trim()+(state.iPrice.trim()?` ¥${state.iPrice.trim()}`:"");
+      });
+      box.appendChild(nameIn);
+      box.appendChild(h("label",{style:{display:"block",fontSize:"16px",fontWeight:"bold",color:"#333",marginBottom:"8px"}},"价格（可不填）"));
+      const priceIn=h("input",{type:"text",placeholder:"例：6　或　2.5/份",
+        style:{width:"100%",padding:"13px 14px",fontSize:"17px",border:"1.5px solid #ddd",
+          borderRadius:"10px",outline:"none",marginBottom:"14px",display:"block"}});
+      priceIn.value=iPrice;
+      priceIn.addEventListener("input",()=>{
+        state.iPrice=priceIn.value;
+        if(prevSpan)prevSpan.textContent=state.iName.trim()+(state.iPrice.trim()?` ¥${state.iPrice.trim()}`:"");
+      });
+      box.appendChild(priceIn);
+      const prevBox=h("div",{style:{background:"#F1F8E9",borderRadius:"10px",padding:"11px 14px",
+        marginBottom:"18px",minHeight:"46px",display:"flex",alignItems:"center"}});
+      prevSpan=h("span",{style:{fontSize:"18px",color:"#1B5E20",fontWeight:"bold"}},
+        iName.trim()?(iName.trim()+(iPrice.trim()?` ¥${iPrice.trim()}`:"")):""
+      );
+      const hint=document.createElement("span");
+      hint.style.cssText="font-size:14px;color:#aaa;";
+      hint.textContent="输入后在此预览…";
+      if(iName.trim())hint.style.display="none";
+      prevBox.append(prevSpan,hint);box.appendChild(prevBox);
+      const btns=h("div",{style:{display:"flex",gap:"10px"}});
+      btns.appendChild(h("button",{style:{flex:"1",padding:"14px",borderRadius:"10px",
+        border:"1.5px solid #ddd",background:"#fff",fontSize:"15px",color:"#555"},
+        onClick(){state.eMode="list";state.iName="";state.iPrice="";render();}
+      },"取消"));
+      btns.appendChild(h("button",{style:{flex:"2",padding:"14px",borderRadius:"10px",
+        border:"none",background:"#1B5E20",color:"#fff",fontSize:"15px",fontWeight:"bold"},
+        onClick(){eMode==="add"?doAdd():doEdit();render();}
+      },"确定保存"));
+      box.appendChild(btns);pad.appendChild(box);
+    }
+  }
+
+  // ── 导出 ──────────────────────────────────────────────────────
+  if(tab==="export"){
+    const pad=h("div",{style:{padding:"16px"}});
+    content.appendChild(pad);
+    const card=h("div",{style:{background:"#fff",borderRadius:"16px",padding:"20px",
+      marginBottom:"16px",border:"1.5px solid #E0E0E0"}});
+    card.appendChild(h("div",{style:{fontSize:"18px",fontWeight:"bold",marginBottom:"6px"}},"📊 导出 Excel"));
+    card.appendChild(h("div",{style:{color:"#666",lineHeight:"1.8",marginBottom:"20px",fontSize:"15px"}},
+      "将当前菜单导出为 Excel 文件（.xlsx），用 WPS 或 Excel 打开，格式与原菜谱一致。"));
+    card.appendChild(h("button",{style:{width:"100%",padding:"17px",borderRadius:"12px",
+      border:"none",background:"#1B5E20",color:"#fff",fontSize:"17px",fontWeight:"bold",
+      boxShadow:"0 2px 10px #1B5E2055"},onClick:exportExcel
+    },"📥 生成并下载 Excel 文件"));
+    pad.appendChild(card);
+    const prev=h("div",{style:{background:"#fff",borderRadius:"16px",padding:"16px",border:"1.5px solid #E0E0E0"}});
+    prev.appendChild(h("div",{style:{fontSize:"15px",fontWeight:"bold",marginBottom:"12px",color:"#444"}},"当前菜单预览"));
+    prev.appendChild(menuTable(.72));
+    pad.appendChild(prev);
+  }
+
+  // ── Tab bar ───────────────────────────────────────────────────
+  const bar=h("div",{style:{display:"flex",borderTop:"1px solid #E0E0E0",background:"#fff",
+    position:"sticky",bottom:"0",zIndex:"20"}});
+  [{id:"preview",icon:"👁️",label:"菜单预览"},
+   {id:"edit",icon:"✏️",label:"编辑菜单"},
+   {id:"export",icon:"📊",label:"导出Excel"}].forEach(t=>{
+    const btn=h("button",{style:{flex:"1",padding:"10px 0 8px",border:"none",background:"#fff",
+      borderTop:tab===t.id?"2.5px solid #1B5E20":"2.5px solid transparent",
+      color:tab===t.id?"#1B5E20":"#9E9E9E"},
+      onClick(){state.tab=t.id;if(t.id==="edit")resetEdit();render();}
+    });
+    btn.appendChild(h("div",{style:{fontSize:"22px"}},t.icon));
+    btn.appendChild(h("div",{style:{fontSize:"12px",fontWeight:tab===t.id?"bold":"normal"}},t.label));
+    bar.appendChild(btn);
+  });
+  app.appendChild(bar);
+
+  if(state.toast){
+    app.appendChild(h("div",{style:{position:"fixed",bottom:"72px",left:"50%",
+      transform:"translateX(-50%)",background:"rgba(30,30,30,.82)",color:"#fff",
+      padding:"11px 22px",borderRadius:"22px",fontSize:"15px",zIndex:"100",
+      whiteSpace:"nowrap",boxShadow:"0 4px 16px rgba(0,0,0,.2)"}},state.toast));
+  }
+}
+render();
+</script>
+</body>
+</html>
